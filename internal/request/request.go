@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"slices"
 	"strings"
 )
@@ -16,6 +15,7 @@ type requestState int
 const (
 	requestStateStatusLine requestState = iota
 	requestStateHeaders
+	requestStateBody
 )
 
 type Request struct {
@@ -23,6 +23,7 @@ type Request struct {
 	RequestTarget string
 	HttpVersion   string
 	Body          []byte
+	Headers       map[string]string
 	state         requestState
 	currentLine   []byte
 }
@@ -32,6 +33,7 @@ func RequestFromReader(r io.Reader) (*Request, error) {
 		return nil, errors.New("Buffer for reading request must be at least 1 byte in length")
 	}
 	request := &Request{ state: requestStateStatusLine }
+	request.Headers = make(map[string]string)
 	buffer := make([]byte, readBufferLen)
 	for {
 		n, err := r.Read(buffer)
@@ -51,24 +53,26 @@ func parse(request *Request, newData []byte) error {
 		return nil
 	}
 	request.currentLine = slices.Concat(request.currentLine, newData)
-	requestLineEndIndex := strings.Index(string(request.currentLine), "\r\n")
-	if requestLineEndIndex == -1 {
+	lineEndIndex := strings.Index(string(request.currentLine), "\r\n")
+	if lineEndIndex == -1 {
 		return nil
 	}
+	line := string(request.currentLine[:lineEndIndex + 2])
+	request.currentLine = request.currentLine[lineEndIndex + 2:]
+	var err error
 	switch request.state {
 	case requestStateStatusLine:
-		requestLineStr := string(request.currentLine[:requestLineEndIndex + 2])
-		err := parseRequestLine(request, requestLineStr)
-		if err != nil {
-			return err
-		}
-		request.currentLine = request.currentLine[requestLineEndIndex + 2:]
+		err = parseRequestLine(request, line)
+	case requestStateHeaders:
+		err = parseHeader(request, line)
+	}
+	if err != nil {
+		return err
 	}
 	return nil
 }
 
 func parseRequestLine(request *Request, requestLine string) error {
-	slog.Info("Request line: " + requestLine)
 	parts := strings.Split(requestLine, " ")
 	if len(parts) != 3 {
 		return errors.New("Invalid request line")
@@ -77,5 +81,22 @@ func parseRequestLine(request *Request, requestLine string) error {
 	request.RequestTarget = parts[1]
 	request.HttpVersion = parts[2]
 	request.state = requestStateHeaders
+	return nil
+}
+
+func parseHeader(request *Request, headerLine string) error {
+	if headerLine == "\r\n" {
+		request.state = requestStateBody
+		return nil
+	}
+	separatorIndex := strings.Index(headerLine, ":")
+	if separatorIndex == -1 {
+		return errors.New("Invalid header")
+	}
+	headerName := headerLine[:separatorIndex]
+	headerValue := headerLine[separatorIndex + 1:]
+	headerName = strings.ToLower(headerName)
+	headerValue = strings.TrimSpace(headerValue)
+	request.Headers[headerName] = headerValue
 	return nil
 }
