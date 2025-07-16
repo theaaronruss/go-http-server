@@ -3,9 +3,18 @@ package main
 import (
 	"log/slog"
 	"net"
+
+	"github.com/theaaronruss/go-http-server/internal/request"
 )
 
 func handleRequest(conn net.Conn) {
+	defer conn.Close()
+	slog.Info("Handling request for client")
+	request, err := request.RequestFromReader(conn)
+	if err != nil {
+		slog.Error(err.Error())
+	}
+	slog.Info("Parsed request", "request", request)
 }
 
 func main() {
@@ -22,23 +31,9 @@ func main() {
 			slog.Error("Failed to accept new connection: " + err.Error())
 		}
 		slog.Info("Accepted new connection from " + conn.RemoteAddr().String())
-		// err = sendMessage(conn)
 		go handleRequest(conn)
 		if err != nil {
 			slog.Error("Failed to send message to client: " + err.Error())
 		}
-		conn.Close()
-		slog.Info("Connection to client closed")
 	}
 }
-
-// func sendMessage(conn net.Conn) error {
-// 	slog.Info("Sending message to client")
-// 	message := "Hello, user!\n"
-// 	n, err := conn.Write([]byte(message))
-// 	if err != nil {
-// 		return err
-// 	}
-// 	slog.Info("Wrote " + fmt.Sprint(n) + " bytes to client")
-// 	return nil
-// }
