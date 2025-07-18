@@ -4,13 +4,13 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/theaaronruss/go-http-server/internal/request"
+	"github.com/theaaronruss/go-http-server/internal"
 )
 
 func handleRequest(conn net.Conn) {
 	defer conn.Close()
 	slog.Info("Handling request for client")
-	request, err := request.RequestFromReader(conn)
+	request, err := request.ReadRequest(conn)
 	if err != nil {
 		slog.Error(err.Error())
 	}
