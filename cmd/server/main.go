@@ -15,9 +15,17 @@ func handleRequest(conn net.Conn) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
-	response := response.NewResponse(200, request.Body)
-	response.Headers["connection"] = "close"
-	response.Write(conn)
+	switch request.Target {
+	case "/error":
+		response := response.NewResponse(400, []byte("This is an example of a bad request error\n"))
+		response.Write(conn)
+	case "/author":
+		response := response.NewResponse(200, []byte("Aaron Russell\n"))
+		response.Write(conn)
+	default:
+		response := response.NewResponse(404, nil)
+		response.Write(conn)
+	}
 	conn.Close()
 }
 
