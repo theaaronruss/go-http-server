@@ -3,6 +3,7 @@ package request
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"slices"
 	"strconv"
@@ -46,6 +47,10 @@ func ReadRequest(conn net.Conn) (*Request, error) {
 			buffer = newBuffer
 		}
 		n, err := conn.Read(buffer[readBytes:])
+		if err == io.EOF {
+			request.state = requestStateDone
+			return request, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to read request: %w", err)
 		}

@@ -5,7 +5,8 @@ import (
 	"net"
 	"os"
 
-	"github.com/theaaronruss/go-http-server/internal"
+	"github.com/theaaronruss/go-http-server/internal/request"
+	"github.com/theaaronruss/go-http-server/internal/response"
 )
 
 func handleRequest(conn net.Conn) {
@@ -14,7 +15,10 @@ func handleRequest(conn net.Conn) {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
-	fmt.Println("Parsed request:", *request)
+	response := response.NewResponse(200, request.Body)
+	response.Headers["connection"] = "close"
+	response.Write(conn)
+	conn.Close()
 }
 
 func main() {
